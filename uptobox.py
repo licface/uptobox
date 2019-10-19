@@ -10,6 +10,8 @@ import urlparse
 import json
 import clipboard
 from pywget import wget
+import traceback
+import time
 
 class uptobox(object):
     def __init__(self):
@@ -59,9 +61,32 @@ class uptobox(object):
         a = requests.get(url, params = params)
         content = json.loads(a.content)
         debug(content = content, debug = debugx)
-        download_url = content.get('data').get('dlLink')
+        download_url = ''
+        if not content.get('data').get('dlLink'):
+            while 1:
+                if content.get('data').get('waitingToken') and content.get('data').get('waiting'):
+                    waitingToken = content.get('data').get('waitingToken')
+                    waiting = content.get('data').get('waiting')
+                    debug(waitingToken = waitingToken, debug = debugx)
+                    debug(waiting = waiting, debug = debugx)
+                    params = {
+                        'token': token,
+                        'file_code': file_code,
+                        'waitingToken': waitingToken
+                    }
+                    a = requests.get(url, params = params)
+                    content = json.loads(a.content)
+                    debug(content = content, debug = debugx)                    
+                    time.sleep(1)
+                    sys.stdout.write(".")
+                else:
+                    download_url = content.get('data').get('dlLink')
+        else:       
+            download_url = content.get('data').get('dlLink')
+        if not download_url:
+            print make_colors("GENERATE FAILED !", 'lr', 'lw', ['blink'])
         debug(download_url = download_url, debug = debugx)
-        clipboard.copy(download_url)
+        clipboard.copy(str(download_url))
         if downloadit:
             self.download(download_url, download_path, save_name, download_prompt)
         return download_url
@@ -73,13 +98,14 @@ class uptobox(object):
             dm = idm.IDMan()
             dm.download(url, download_path, altname, confirm= prompt)
         except:
+            traceback.format_exc()
             print make_colors("Internet Download Manager NOT FOUND !", 'lr', 'lw', ['blink'])
             print make_colors('Download with wget (buildin) ...', 'b', 'ly')
             
             if altname:
                 download_path = os.path.join(download_path, altname)
                 print make_colors("SAVE AS ", 'lc') + " : " + make_colors(download_path, 'lw', 'lr')
-            wget.download(url, download_path)
+            wget.download(str(url), download_path)
             
     def usage(self):
         parser = argparse.ArgumentParser(formatter_class= argparse.RawTextHelpFormatter)
@@ -103,8 +129,35 @@ class uptobox(object):
             else:
                 IS_DOWNLOAD = False
             
-            download_url = self.generate_link(args.URL, args.token, args.download, args.path, args.saveas, args.prompt, args.debug)
-            print make_colors("GENERATE", 'lc') + " : " + make_colors(download_url, 'lw', 'lr')
+            saveas = None
+            if args.saveas:
+                ext = os.path.splitext(args.saveas)
+                debug(ext = ext, debug = args.debug)
+                if not ext[1]:
+                    download_url = self.generate_link(args.URL, args.token, False, args.path, args.saveas, args.prompt, args.debug)
+                    debug(download_url = download_url, debug = args.debug)
+                    print make_colors("GENERATE", 'lc') + " : " + make_colors(download_url, 'lw', 'lr')
+                    ext1 = os.path.splitext(download_url)[1]
+                    debug(ext1 = ext1, debug = args.debug)
+                    saveas = ext[0] + ext1
+                    debug(saveas = saveas, debug = args.debug)
+                else:
+                    download_url = self.generate_link(args.URL, args.token, False, args.path, args.saveas, args.prompt, args.debug)
+                    debug(download_url = download_url, debug = args.debug)
+                    ext1 = os.path.splitext(download_url)[1]
+                    debug(ext1 = ext1, debug = args.debug)
+                    if not ext[1] == ext1:
+                        q = raw_input(make_colors('Do you want to save as other extention ? [y/n]: '))
+                        if str(q).lower() == 'y':
+                            saveas = args.saveas
+                    else:
+                        saveas = args.saveas
+                debug(saveas = saveas, debug = args.debug)
+                debug(download_url = download_url, debug = args.debug)
+                self.download(download_url, args.path, saveas, args.prompt)
+            else:   
+                download_url = self.generate_link(args.URL, args.token, args.download, args.path, args.saveas, args.prompt, args.debug)
+                print make_colors("GENERATE", 'lc') + " : " + make_colors(download_url, 'lw', 'lr')
             
                 
         
